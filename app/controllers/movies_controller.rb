@@ -19,18 +19,42 @@ class MoviesController < ApplicationController
     @movie = Movie.find(id) # look up movie by unique ID
     # will render app/views/movies/show.<extension> by default
   end
+  
+  
+  def clear
+    session.clear
+    redirect_to movies_path  
+  end
 
-  def index
-    @movies = params[:ratings].nil? ? Movie.all : Movie.where("rating IN (?)", params[:ratings].keys)
-    sort = params[:sort] || session[:sort]
-    case sort
-    when 'title'
-      ordering,@title_header = {:order => :title}, 'hilite'
-      @movies = Movie.order(:title)
-    when 'release_date'
-      ordering,@date_header = {:order => :release_date}, 'hilite'
-      @movies = Movie.order(:release_date)
+  def get_sort_state
+    @sort = params[:sort]
+    if params[:sort].nil?
+      @sort =  (session[:sort].nil?) ? :unsorted : session[:sort]
     end
+    @sort
+  end
+
+  def get_filter_state
+    @filter = session[:filter]
+    if params[:commit] == 'Refresh'
+      @filter = params[:ratings].keys unless params[:ratings].nil?
+    end
+    @filter = @all_ratings if @filter.nil?
+    @filter
+  end  
+  
+  def index
+    session[:sort] = get_sort_state
+    session[:filter] = get_filter_state
+
+    if params[:sort].nil? or params[:filter].nil?
+      params[:ratings] = @filter
+      params[:sort] = @sort
+      redirect_to movies_path(sort: @sort, filter: @filter)
+      return
+    end
+    @movies = Movie.where("rating IN (?)", @filter)
+    @movies = @movies.order(@sort) unless @sort.nil? or @sort=='unsorted'
   end
 
   def new
